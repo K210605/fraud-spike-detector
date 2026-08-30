@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Fraud Spike Detector — AI Risk Manager</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🛡️</text></svg>">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: #0b1120;
+            color: #e2e8f0;
+            margin: 0;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* ---------- LOGIN SCREEN ---------- */
+        .login-screen {
+            position: fixed; inset: 0;
+            background: radial-gradient(circle at top, #1e293b, #0b1120);
+            display: flex; align-items: center; justify-content: center;
+            z-index: 100;
+        }
+        .login-card {
+            background: #131c2e; border: 1px solid #2d3b53;
+            border-radius: 16px; padding: 40px; width: 340px;
+            text-align: center;
+        }
+        .login-icon {
+            width: 56px; height: 56px; border-radius: 14px;
+            background: linear-gradient(135deg, #60a5fa, #a78bfa);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 26px; margin: 0 auto 16px;
+        }
+        .login-card h2 { margin: 0 0 6px; font-size: 20px; }
+        .login-card p { color: #94a3b8; font-size: 13px; margin-bottom: 24px; }
+        .login-input {
+            width: 100%; background: #0f172a; border: 1px solid #2d3b53;
+            color: #e2e8f0; padding: 10px 14px; border-radius: 8px;
+            margin-bottom: 12px; font-size: 13px; outline: none;
+        }
+        .login-input:focus { border-color: #60a5fa; }
+        .login-btn {
+            width: 100%; background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+            color: #fff; border: none; padding: 11px; border-radius: 8px;
+            font-size: 14px; font-weight: bold; cursor: pointer; margin-top: 6px;
+        }
+        .login-btn:hover { opacity: 0.9; }
+        .login-hint { color: #64748b; font-size: 11px; margin-top: 14px; }
+
+        /* ---------- APP SHELL ---------- */
+        .app-shell { display: flex; height: 100vh; }
+
+        .sidebar {
+            width: 220px; background: #0f172a; border-right: 1px solid #1e293b;
+            display: flex; flex-direction: column; flex-shrink: 0;
+        }
+        .sidebar-brand {
+            display: flex; align-items: center; gap: 10px;
+            padding: 20px 18px; border-bottom: 1px solid #1e293b;
+        }
+        .brand-icon {
+            width: 32px; height: 32px; border-radius: 8px;
+            background: linear-gradient(135deg, #60a5fa, #a78bfa);
+            display: flex; align-items: center; justify-content: center; font-size: 15px;
+        }
+        .brand-text { font-size: 14px; font-weight: bold; line-height: 1.2; }
+        .brand-text span { display: block; font-size: 10px; color: #64748b; font-weight: normal; }
+
+        .nav-items { flex: 1; padding: 12px; }
+        .nav-item {
+            display: flex; align-items: center; gap: 10px;
+            padding: 10px 14px; border-radius: 8px; margin-bottom: 4px;
+            color: #94a3b8; font-size: 13px; cursor: pointer;
+        }
+        .nav-item:hover { background: #1a2438; color: #e2e8f0; }
+        .nav-item.active { background: #1e3a8a33; color: #93c5fd; border: 1px solid #1e40af55; }
+
+        .sidebar-footer {
+            padding: 14px 18px; border-top: 1px solid #1e293b;
+            display: flex; align-items: center; gap: 10px; font-size: 12px;
+        }
+        .avatar {
+            width: 30px; height: 30px; border-radius: 50%;
+            background: #334155; display: flex; align-items: center; justify-content: center;
+            font-size: 13px; font-weight: bold;
+        }
+        .sidebar-footer div span { display: block; color: #64748b; font-size: 11px; }
+
+        /* ---------- MAIN AREA ---------- */
+        .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+        .topbar {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 16px 32px; border-bottom: 1px solid #1e293b;
+        }
+        .topbar h1 { margin: 0; font-size: 17px; }
+        .live-badge {
+            display: flex; align-items: center; gap: 8px;
+            background: #14532d; color: #4ade80;
+            padding: 5px 12px; border-radius: 20px; font-size: 12px; font-weight: bold;
+        }
+        .pulse { width: 7px; height: 7px; background: #4ade80; border-radius: 50%; animation: pulse 1.5s infinite; }
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(74,222,128,0.6); }
+            70% { box-shadow: 0 0 0 7px rgba(74,222,128,0); }
+            100% { box-shadow: 0 0 0 0 rgba(74,222,128,0); }
+        }
+        .last-updated { color: #64748b; font-size: 12px; margin-left: 14px; }
+
+        .content { flex: 1; overflow-y: auto; padding: 24px 32px; }
+        .view { display: none; }
+        .view.active { display: block; }
+
+        .cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+        .card { background: linear-gradient(145deg, #1e293b, #17223a); padding: 18px 22px; border-radius: 12px; border: 1px solid #2d3b53; }
+        .card .icon { font-size: 18px; margin-bottom: 6px; }
+        .card .label { color: #94a3b8; font-size: 13px; }
+        .card .value { font-size: 28px; font-weight: bold; margin-top: 4px; }
+
+        .main-grid { display: grid; grid-template-columns: 1.3fr 1fr; gap: 20px; }
+        .panel { background: #131c2e; border-radius: 12px; border: 1px solid #2d3b53; padding: 20px; }
+        .panel h3 { margin-top: 0; font-size: 15px; color: #cbd5e1; }
+
+        .toolbar { display: flex; gap: 10px; margin-bottom: 16px; align-items: center; }
+        .search-input {
+            background: #0f172a; border: 1px solid #2d3b53; color: #e2e8f0;
+            padding: 8px 14px; border-radius: 8px; font-size: 13px; flex: 1; outline: none;
+        }
+        .search-input:focus { border-color: #60a5fa; }
+        .filter-btn { background: #1e293b; border: 1px solid #2d3b53; color: #94a3b8; padding: 8px 14px; border-radius: 8px; font-size: 13px; cursor: pointer; }
+        .filter-btn.active { background: #1e40af; color: #fff; border-color: #3b82f6; }
+
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid #22304a; font-size: 13px; }
+        th { color: #94a3b8; font-weight: 600; font-size: 11px; text-transform: uppercase; }
+        tr.txn-row { cursor: pointer; }
+        tr.txn-row:hover td { background: #182338; }
+
+        .badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 12px; font-weight: bold; }
+        .badge-high { background: #450a0a; color: #f87171; }
+        .badge-medium { background: #451a03; color: #fbbf24; }
+        .badge-low { background: #052e16; color: #4ade80; }
+
+        .empty-state { text-align: center; padding: 40px; color: #64748b; font-size: 14px; }
+
+        .pagination { display: flex; justify-content: space-between; align-items: center; margin-top: 14px; font-size: 13px; color: #94a3b8; }
+        .pagination button { background: #1e293b; border: 1px solid #2d3b53; color: #e2e8f0; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 13px; }
+        .pagination button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+        .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); align-items: center; justify-content: center; z-index: 50; }
+        .modal-overlay.active { display: flex; }
+        .modal { background: #131c2e; border: 1px solid #2d3b53; border-radius: 12px; padding: 24px; width: 400px; }
+        .modal h3 { margin-top: 0; }
+        .modal-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #22304a; font-size: 13px; }
+        .modal-row span:first-child { color: #94a3b8; }
+        .modal-close { margin-top: 16px; background: #1e40af; color: #fff; border: none; padding: 8px 16px; border-radius: 8px; cursor: pointer; width: 100%; }
+    </style>
+</head>
+<body>
+
+    <!-- LOGIN SCREEN -->
+    <div class="login-screen" id="loginScreen">
+        <div class="login-card">
+            <div class="login-icon">🛡️</div>
+            <h2>Fraud Spike Detector</h2>
+            <p>AI Risk Manager — sign in to continue</p>
+            <input class="login-input" type="text" value="admin@riskteam.io" readonly>
+            <input class="login-input" type="password" value="••••••••••" readonly>
+            <button class="login-btn" onclick="enterApp()">Sign In</button>
+            <div class="login-hint">Demo mode — click Sign In to continue</div>
+        </div>
+    </div>
+
+    <!-- APP SHELL -->
+    <div class="app-shell" id="appShell" style="display:none;">
+        <div class="sidebar">
+            <div class="sidebar-brand">
+                <div class="brand-icon">🛡️</div>
+                <div class="brand-text">Fraud Detector<span>AI Risk Manager</span></div>
+            </div>
+            <div class="nav-items">
+                <div class="nav-item active" data-view="overview">📊 &nbsp; Overview</div>
+                <div class="nav-item" data-view="transactions">📋 &nbsp; Transactions</div>
+            </div>
+            <div class="sidebar-footer">
+                <div class="avatar">A</div>
+                <div>Admin User<span>Risk Team</span></div>
+            </div>
+        </div>
+
+        <div class="main">
+            <div class="topbar">
+                <h1 id="topbarTitle">Overview</h1>
+                <div style="display:flex; align-items:center;">
+                    <div class="live-badge"><span class="pulse"></span> LIVE</div>
+                    <span class="last-updated" id="lastUpdated">updating...</span>
+                </div>
+            </div>
+
+            <div class="content">
+                <div class="view active" id="view-overview">
+                    <div class="cards" id="statsCards"></div>
+                    <div class="main-grid">
+                        <div class="panel">
+                            <h3>Top Flagged Transactions</h3>
+                            <table>
+                                <thead><tr><th>User</th><th>Amount (₹)</th><th>Merchant</th><th>Risk</th></tr></thead>
+                                <tbody id="overviewTableBody"></tbody>
+                            </table>
+                        </div>
+                        <div class="panel">
+                            <h3>Risk Score Distribution</h3>
+                            <canvas id="riskChart" height="220"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="view" id="view-transactions">
+                    <div class="panel">
+                        <div class="toolbar">
+                            <input class="search-input" id="searchBox" placeholder="Search by user ID (e.g. user_022)...">
+                            <button class="filter-btn active" data-filter="flagged">Flagged Only</button>
+                            <button class="filter-btn" data-filter="all">All Transactions</button>
+                        </div>
+                        <table>
+                            <thead><tr><th>User</th><th>Amount (₹)</th><th>Merchant</th><th>Timestamp</th><th>Risk</th><th>Reason</th></tr></thead>
+                            <tbody id="fullTableBody"></tbody>
+                        </table>
+                        <div class="pagination">
+                            <span id="pageInfo">Page 1</span>
+                            <div><button id="prevPage">← Prev</button> <button id="nextPage">Next →</button></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="modalOverlay">
+        <div class="modal" id="modalContent"></div>
+    </div>
+
+    <script>
+        const API_BASE = "http://127.0.0.1:8000";
+        let allTxns = [], flaggedTxns = [];
+        let currentFilter = "flagged", currentPage = 1;
+        const PAGE_SIZE = 15;
+
+        function enterApp() {
+            document.getElementById("loginScreen").style.display = "none";
+            document.getElementById("appShell").style.display = "flex";
+            refreshAll();
+        }
+
+        function getBadge(score) {
+            if (score >= 80) return `<span class="badge badge-high">${score} · HIGH</span>`;
+            if (score >= 50) return `<span class="badge badge-medium">${score} · MED</span>`;
+            return `<span class="badge badge-low">${score} · LOW</span>`;
+        }
+
+        document.querySelectorAll(".nav-item").forEach(item => {
+            item.addEventListener("click", () => {
+                document.querySelectorAll(".nav-item").forEach(i => i.classList.remove("active"));
+                document.querySelectorAll(".view").forEach(v => v.classList.remove("active"));
+                item.classList.add("active");
+                document.getElementById(`view-${item.dataset.view}`).classList.add("active");
+                document.getElementById("topbarTitle").textContent = item.textContent.trim().replace(/^\S+\s*/, "");
+            });
+        });
+
+        document.querySelectorAll(".filter-btn").forEach(btn => {
+            btn.addEventListener("click", () => {
+                document.querySelectorAll(".filter-btn").forEach(b => b.classList.remove("active"));
+                btn.classList.add("active");
+                currentFilter = btn.dataset.filter;
+                currentPage = 1;
+                renderTransactionTable();
+            });
+        });
+
+        document.getElementById("searchBox").addEventListener("input", () => { currentPage = 1; renderTransactionTable(); });
+        document.getElementById("prevPage").addEventListener("click", () => { if (currentPage > 1) { currentPage--; renderTransactionTable(); } });
+        document.getElementById("nextPage").addEventListener("click", () => { currentPage++; renderTransactionTable(); });
+
+        function showModal(txn) {
+            document.getElementById("modalContent").innerHTML = `
+                <h3>Transaction Detail</h3>
+                <div class="modal-row"><span>User</span><span>${txn.user_id}</span></div>
+                <div class="modal-row"><span>Amount</span><span>₹${txn.amount.toFixed(2)}</span></div>
+                <div class="modal-row"><span>Merchant</span><span>${txn.merchant}</span></div>
+                <div class="modal-row"><span>Timestamp</span><span>${txn.timestamp}</span></div>
+                <div class="modal-row"><span>Risk Score</span><span>${getBadge(txn.risk_score)}</span></div>
+                <div class="modal-row"><span>Reason</span><span>${txn.reason || "—"}</span></div>
+                <button class="modal-close" onclick="document.getElementById('modalOverlay').classList.remove('active')">Close</button>
+            `;
+            document.getElementById("modalOverlay").classList.add("active");
+        }
+        document.getElementById("modalOverlay").addEventListener("click", (e) => { if (e.target.id === "modalOverlay") e.target.classList.remove("active"); });
+
+        function renderOverviewTable() {
+            document.getElementById("overviewTableBody").innerHTML = flaggedTxns.slice(0, 8).map(txn => `
+                <tr class="txn-row" onclick='showModal(${JSON.stringify(txn)})'>
+                    <td>${txn.user_id}</td><td>${txn.amount.toFixed(2)}</td><td>${txn.merchant}</td><td>${getBadge(txn.risk_score)}</td>
+                </tr>`).join("");
+        }
+
+        function renderTransactionTable() {
+            const source = currentFilter === "flagged" ? flaggedTxns : allTxns;
+            const query = document.getElementById("searchBox").value.trim().toLowerCase();
+            const filtered = query ? source.filter(t => t.user_id.toLowerCase().includes(query)) : source;
+            const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+            if (currentPage > totalPages) currentPage = totalPages;
+            const pageItems = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+            const tbody = document.getElementById("fullTableBody");
+            tbody.innerHTML = pageItems.length === 0
+                ? `<tr><td colspan="6" class="empty-state">No transactions match your search.</td></tr>`
+                : pageItems.map(txn => `
+                    <tr class="txn-row" onclick='showModal(${JSON.stringify(txn)})'>
+                        <td>${txn.user_id}</td><td>${txn.amount.toFixed(2)}</td><td>${txn.merchant}</td>
+                        <td>${txn.timestamp}</td><td>${getBadge(txn.risk_score)}</td><td style="color:#94a3b8">${txn.reason || "—"}</td>
+                    </tr>`).join("");
+            document.getElementById("pageInfo").textContent = `Page ${currentPage} of ${totalPages} (${filtered.length} results)`;
+            document.getElementById("prevPage").disabled = currentPage <= 1;
+            document.getElementById("nextPage").disabled = currentPage >= totalPages;
+        }
+
+        let chartInstance = null;
+        function drawChart() {
+            const buckets = { "0-20": 0, "20-40": 0, "40-60": 0, "60-80": 0, "80-100": 0 };
+            flaggedTxns.forEach(t => {
+                const s = t.risk_score;
+                if (s < 20) buckets["0-20"]++; else if (s < 40) buckets["20-40"]++;
+                else if (s < 60) buckets["40-60"]++; else if (s < 80) buckets["60-80"]++; else buckets["80-100"]++;
+            });
+            if (chartInstance) chartInstance.destroy();
+            chartInstance = new Chart(document.getElementById("riskChart"), {
+                type: "bar",
+                data: { labels: Object.keys(buckets), datasets: [{ label: "Flagged Transactions", data: Object.values(buckets), backgroundColor: ["#4ade80", "#a3e635", "#fbbf24", "#fb923c", "#f87171"] }] },
+                options: { plugins: { legend: { display: false } }, scales: { y: { ticks: { color: "#94a3b8" }, grid: { color: "#22304a" } }, x: { ticks: { color: "#94a3b8" }, grid: { display: false } } } }
+            });
+        }
+
+        async function loadStats() {
+            const res = await fetch(`${API_BASE}/stats`);
+            const stats = await res.json();
+            document.getElementById("statsCards").innerHTML = `
+                <div class="card"><div class="icon">📊</div><div class="label">Total Transactions</div><div class="value">${stats.total_transactions}</div></div>
+                <div class="card"><div class="icon">🚩</div><div class="label">Flagged</div><div class="value">${stats.flagged_count}</div></div>
+                <div class="card"><div class="icon">⚠️</div><div class="label">Flag Rate</div><div class="value">${stats.flagged_percent}%</div></div>
+                <div class="card"><div class="icon">🎯</div><div class="label">Avg Risk Score</div><div class="value">${stats.avg_risk_score_flagged}</div></div>`;
+        }
+
+        async function loadAllData() {
+            const [flaggedRes, allRes] = await Promise.all([fetch(`${API_BASE}/transactions/flagged`), fetch(`${API_BASE}/transactions`)]);
+            flaggedTxns = await flaggedRes.json();
+            allTxns = await allRes.json();
+            renderOverviewTable();
+            renderTransactionTable();
+            drawChart();
+        }
+
+        let secondsSinceRefresh = 0;
+        async function refreshAll() {
+            await loadStats();
+            await loadAllData();
+            secondsSinceRefresh = 0;
+        }
+        setInterval(() => {
+            secondsSinceRefresh++;
+            document.getElementById("lastUpdated").textContent = `Last updated ${secondsSinceRefresh}s ago`;
+        }, 1000);
+        setInterval(() => { if (document.getElementById("appShell").style.display !== "none") refreshAll(); }, 10000);
+    </script>
+</body>
+</html>
