@@ -14,8 +14,23 @@ This system combines:
 - **Statistical rules** — detects velocity spikes (too many transactions in a short window) and amount anomalies (transactions far above a user's typical spend)
 - **Machine learning (Isolation Forest)** — an unsupervised model that scores every transaction for anomalous behaviour, catching patterns the rules alone would miss
 - **Human-readable explanations** — every flagged transaction includes a plain-language reason, not just a score
+- **Manual Transaction Checker** — instantly assess the risk of any single transaction (user, amount, merchant) without waiting for a full batch run
 
 The result is served through a live, app-style dashboard (with sign-in screen and sidebar navigation) that mimics a real internal risk-monitoring tool.
+
+## Screenshots
+
+### Sign-In Screen
+![Login](screenshots/login.jpeg)
+
+### Dashboard Overview
+![Overview](screenshots/overview.png)
+
+### Transaction Explorer
+![Transactions](screenshots/transactions.png)
+
+### Manual Transaction Checker
+![Check Transaction](screenshots/check-transaction.png)
 
 ## Architecture
 
@@ -48,8 +63,8 @@ Live Transaction Simulator (simulate.py)
 - Synthetic transaction generator with injected fraud patterns for testing
 - Dual-layer detection: statistical rules + unsupervised ML
 - Human-readable flag explanations (e.g. "rapid transactions", "unusually high amount", "ML anomaly pattern")
-- REST API with endpoints for all transactions, flagged transactions, and summary stats
-- App-style dashboard: sign-in screen, sidebar navigation, search, filtering, pagination, and a transaction detail modal
+- REST API with endpoints for all transactions, flagged transactions, summary stats, and manual transaction checks
+- App-style dashboard: sign-in screen, sidebar navigation, search, filtering, pagination, transaction detail modal, and a manual transaction checker
 - Auto-refreshing UI (near real-time monitoring)
 - Live transaction simulator that continuously generates new transactions, occasionally injecting fraud spikes
 - Model evaluation against known ground truth (Precision, Recall, F1, Accuracy)
